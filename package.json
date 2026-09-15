@@ -3,10 +3,23 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "bun run index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.2.11",
+    "@langchain/langgraph": "^1.4.15",
+    "@langchain/openai": "^1.5.13",
+    "@langchain/tavily": "^1.2.0",
+    "langchain": "^1.5.11",
+    "zod": "^4.6.5"
   }
 }
