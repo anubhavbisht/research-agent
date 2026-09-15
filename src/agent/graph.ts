@@ -1,4 +1,5 @@
-import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
+import { END, MemorySaver, START, StateGraph } from "@langchain/langgraph";
+import { responderAgent } from "./responder";
 import { StateAnnotation } from "./state";
 
 /**
@@ -8,13 +9,15 @@ import { StateAnnotation } from "./state";
  *
  *   START -> responder -> research -> revisor -> (research | finalize) -> END
  *
- * Each node is `.addNode(name, fn)` with the function imported from its own
- * folder; the loop back from the revisor is `.addConditionalEdges` with a
+ * Today the responder runs alone, so the turn ends on an unsourced draft and
+ * the queries it asked for go nowhere. `research` is the next node to land;
+ * the loop back from the revisor will be `.addConditionalEdges` with a
  * predicate from `./predicates`.
  */
 const graph = new StateGraph(StateAnnotation)
-    // .addNode("responder", responderAgent)
-    .addEdge(START, "__end__");
+    .addNode("responder", responderAgent)
+    .addEdge(START, "responder")
+    .addEdge("responder", END);
 
 // The checkpointer is what makes a thread_id remember earlier turns.
 export const app = graph.compile({ checkpointer: new MemorySaver() });

@@ -9,8 +9,9 @@ until every claim rests on a source or the revision budget runs out.
 Built with LangGraph on [Bun](https://bun.com), with OpenAI for inference and
 Tavily for search.
 
-> **Status: skeleton.** The environment, the model, the search client and the
-> graph's wiring file exist. The nodes do not — see [To build](#to-build).
+> **Status: in progress.** The environment, the model, the search client, the
+> rubric, the draft contract and the `responder` node exist. The graph is not
+> wired yet — see [To build](#to-build).
 
 ## Reflexion, and how it differs from reflection
 
@@ -96,6 +97,7 @@ src/
     schemas.ts               the Reflexion output contract, shared by both nodes
     llm.ts                   the OpenAI chat model
     rubric.ts                what a good answer looks like — shared by both prompts
+    responder/               first unsourced answer + self-critique + queries
     research/
       tools/tavily.ts        the search client
 ```
@@ -107,21 +109,25 @@ per specialist and stays unaware of how that folder is laid out inside.
 
 ## To build
 
-Roughly in dependency order:
+Roughly in dependency order. Done so far:
 
-1. **`state.ts`** — the channels the loop needs: `answer`, `critique`,
-   `queries`, `evidence`, `revisions`, `verdict`. Plus the zod enums that close
-   the routing (`GROUNDED` / `REVISE`), since the enum types the channel *and*
-   constrains what the model may emit.
-2. **`rubric.ts`** — the rules both prompts build on.
-3. **`schemas.ts`** — the structured-output shapes. This is where the pattern
-   actually lives.
-4. **`responder/`** — one call returning answer + critique + queries.
+1. ~~**`state.ts`**~~ — `answer`, `reflection` and `queries` channels, plus
+   `ReflectionSchema`. Still needs `evidence`, `revisions` and a `VerdictSchema`
+   (`GROUNDED` / `REVISE`) — the enum types the channel *and* constrains what
+   the model may emit.
+2. ~~**`rubric.ts`**~~ — the rules both prompts build on.
+3. ~~**`schemas.ts`**~~ — `DraftSchema`. Still needs the revision shape: the
+   same fields plus `citations` and `verdict`.
+4. ~~**`responder/`**~~ — one call returning answer + reflection + queries.
+
+Remaining:
+
 5. **`research/tools/index.ts`** — the public surface over `tavily.ts`; then
    **`research/index.ts`**, the node that runs the queries.
 6. **`revisor/`** — rewrite against evidence, cite, re-critique, vote.
 7. **`predicates.ts`** — `needsMoreResearch`, with `MAX_REVISIONS` beside it.
-8. **`graph.ts`** — the nodes and the conditional edge back to `research`.
+8. **`graph.ts`** — the nodes and the conditional edge back to `research`. Then
+   `index.ts` reads `result.answer` rather than the last message.
 
 Worth deciding early, because they are awkward to retrofit:
 

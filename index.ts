@@ -42,7 +42,13 @@ async function main() {
                     config,
                 );
 
-                console.log(`\nAI: ${result.messages.at(-1)?.text}\n`);
+                // The answer channel, not the last message: the draft lives
+                // in its own channel so revisions never enter the transcript.
+                console.log(`\nAI: ${result.answer}\n`);
+
+                // Visible while the responder runs alone — these are what the
+                // research node will consume once it exists.
+                console.log(`[next searches: ${result.queries.join(" | ")}]\n`);
             } catch (e) {
                 console.error("AI:  Something went wrong:", (e as Error).message);
             }
