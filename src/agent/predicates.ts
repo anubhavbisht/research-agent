@@ -1,4 +1,3 @@
-import { END } from "@langchain/langgraph";
 import type { GraphState } from "./state";
 
 /**
@@ -31,8 +30,8 @@ export const MAX_REVISIONS = 3;
  * - the budget is spent. The backstop, not the normal path.
  */
 export function needsMoreResearch(state: GraphState) {
-    if (state.verdict === "GROUNDED") return END;
-    if (state.queries.length === 0) return END;
-    if (state.revisions >= MAX_REVISIONS) return END;
+    if (state.verdict === "GROUNDED") return "finalize";
+    if (state.queries.length === 0) return "finalize";
+    if (state.revisions >= MAX_REVISIONS) return "finalize";
     return "research";
 }

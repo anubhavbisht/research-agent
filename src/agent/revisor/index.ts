@@ -1,4 +1,5 @@
 import { HumanMessage, SystemMessage } from "langchain";
+import { checkCitations } from "../citations";
 import { model } from "../llm";
 import { ANSWER_RUBRIC } from "../rubric";
 import { MAX_QUERIES_PER_ROUND, RevisionSchema } from "../schemas";
@@ -70,13 +71,26 @@ export async function revisorAgent(state: GraphState) {
         ),
     ]);
 
+    // The model is asked to copy URLs out of the evidence, and mostly does.
+    // "Mostly" is the problem: an invented URL makes an answer look sourced
+    // when it is not, and the verdict is this same model's opinion, so nothing
+    // else in the loop would notice.
+    const checked = checkCitations(revision.answer, revision.citations, state.evidence);
+
+    if (checked.unknown.length > 0) {
+        console.warn(`  [dropped ${checked.unknown.length} citation(s) not in the evidence]`);
+    }
+    if (checked.dangling.length > 0) {
+        console.warn(`  [answer cites ${checked.dangling.map((n) => `[${n}]`).join(", ")} with no such source]`);
+    }
+
     return {
         answer: revision.answer,
         reflection: revision.reflection,
         // Queries are dropped on GROUNDED: the predicate ends the turn there,
         // and leaving them would feed a stale round if it ever did not.
         queries: revision.verdict === "REVISE" ? revision.searchQueries : [],
-        citations: revision.citations,
+        citations: checked.citations,
         verdict: revision.verdict,
         revisions: state.revisions + 1,
     };
