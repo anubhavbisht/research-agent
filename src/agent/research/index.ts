@@ -13,5 +13,10 @@ export async function researchAgent(state: GraphState) {
 
     const evidence = await searchAll(state.queries);
 
+    // An empty patch, not `{ evidence: [] }`: the reducer reads an explicit
+    // empty array as "new question, clear the channel", so a round where every
+    // query failed would wipe the sources earlier rounds found.
+    if (evidence.length === 0) return {};
+
     return { evidence };
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ReflectionSchema } from "./state";
+import { ReflectionSchema, VerdictSchema } from "./state";
 
 /**
  * The Reflexion contract: what each node in the loop hands back.
@@ -36,3 +36,29 @@ export const DraftSchema = z.object({
         ),
 });
 export type Draft = z.infer<typeof DraftSchema>;
+
+/**
+ * A revision, grounded in evidence. The draft's three fields plus the two that
+ * only exist once there are sources on the table: what the answer cites, and
+ * whether anything is still open.
+ *
+ * `citations` is a field rather than a "References:" block appended to the
+ * answer text. Structured data in a string has to be parsed back out to be
+ * counted, checked or rendered differently — and a prompt can only ask for a
+ * format, while a schema guarantees it.
+ */
+export const RevisionSchema = z.object({
+    answer: z.string().describe("The rewritten answer, with inline [n] citations."),
+    reflection: ReflectionSchema,
+    searchQueries: z
+        .array(z.string())
+        // No `.min(1)`, unlike the draft: a GROUNDED verdict means there is
+        // nothing left to look up, and the schema has to allow saying so.
+        .max(MAX_QUERIES_PER_ROUND)
+        .describe("Searches for what is still missing. Empty when the verdict is GROUNDED."),
+    citations: z
+        .array(z.string())
+        .describe("The URLs cited, in [n] order. Copy them exactly from the evidence."),
+    verdict: VerdictSchema,
+});
+export type Revision = z.infer<typeof RevisionSchema>;

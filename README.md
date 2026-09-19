@@ -9,9 +9,9 @@ until every claim rests on a source or the revision budget runs out.
 Built with LangGraph on [Bun](https://bun.com), with OpenAI for inference and
 Tavily for search.
 
-> **Status: in progress.** `responder` and `research` are built and wired, so
-> a turn drafts an answer and gathers sources — but nothing rewrites against
-> them yet. The `revisor` and the loop are next; see [To build](#to-build).
+> **Status: the loop closes.** All three nodes are built and wired, so a turn
+> drafts, searches, rewrites against the sources and decides whether to go
+> again. What is left is polish — see [To build](#to-build).
 
 ## Reflexion, and how it differs from reflection
 
@@ -49,7 +49,7 @@ Two consequences follow, and they are the reason to prefer it here:
         ┌───────────────┐          │
         │    revisor    │──────────┘   rewrite + cite + re-critique + verdict
         └───────────────┘
-                │ GROUNDED, or the revision cap
+                │ GROUNDED, no queries left, or the cap
                 ▼
                END
 ```
@@ -100,6 +100,7 @@ src/
     responder/               first unsourced answer + self-critique + queries
     research/                runs the queries, appends what it finds
       tools/tavily.ts        the search client
+    revisor/                 rewrites against evidence, cites, re-critiques, votes
 ```
 
 A specialist is added as its own folder — `src/agent/<name>/index.ts` for the
@@ -109,29 +110,34 @@ per specialist and stays unaware of how that folder is laid out inside.
 
 ## To build
 
-Roughly in dependency order. Done so far:
+Done:
 
-1. ~~**`state.ts`**~~ — `answer`, `reflection`, `queries` and `evidence`
-   channels, plus `ReflectionSchema`. Still needs `revisions` and a
-   `VerdictSchema` (`GROUNDED` / `REVISE`) — the enum types the channel *and*
-   constrains what the model may emit.
+1. ~~**`state.ts`**~~ — every channel: `answer`, `reflection`, `queries`,
+   `evidence`, `citations`, `revisions`, `verdict`. Plus `ReflectionSchema` and
+   `VerdictSchema`.
 2. ~~**`rubric.ts`**~~ — the rules both prompts build on.
-3. ~~**`schemas.ts`**~~ — `DraftSchema`. Still needs the revision shape: the
-   same fields plus `citations` and `verdict`.
+3. ~~**`schemas.ts`**~~ — `DraftSchema` and `RevisionSchema`.
 4. ~~**`responder/`**~~ — one call returning answer + reflection + queries.
-5. ~~**`research/`**~~ — the node, its tool surface, and the `evidence`
-   channel with an accumulating, URL-deduplicated reducer.
+5. ~~**`research/`**~~ — the node, its tool surface, and the accumulating,
+   URL-deduplicated `evidence` reducer.
+6. ~~**`revisor/`**~~ — rewrites against evidence, cites, re-critiques, votes.
+7. ~~**`predicates.ts`**~~ — `needsMoreResearch` with `MAX_REVISIONS`.
+8. ~~**`graph.ts`**~~ — the conditional edge back to `research`.
 
 Remaining:
 
-6. **`revisor/`** — rewrite against evidence, cite, re-critique, vote.
-7. **`predicates.ts`** — `needsMoreResearch`, with `MAX_REVISIONS` beside it.
-8. **`graph.ts`** — the conditional edge from the revisor back to `research`.
+- **A terminal node.** Nothing writes the finished answer into `messages`, so
+  the thread remembers the questions but not the answers, and a follow-up like
+  "expand on the second point" has no idea what that was.
+- **Tests.** `predicates.ts` is the natural first target — the only logic in
+  the graph that runs without an API key.
+- **Streaming.** `app.invoke` returns only when the whole loop is done, so a
+  two-round question is a silent minute.
+- **Full-text reads.** Only Tavily's snippets are used, so an answer can only
+  be as specific as a search preview. `TavilyExtract` on the top few URLs would
+  fix that.
+- **Citation checking.** Nothing verifies a `[n]` marker points at a source
+  that actually says it.
+- **Persistence.** `MemorySaver` keeps conversations in process memory.
 
-Worth deciding early, because they are awkward to retrofit:
 
-- **Does the answer live in `messages`?** Every revision landing in the
-  transcript means a follow-up question arrives behind four drafts of the last
-  one. A terminal node that writes the finished answer once is the way out.
-- **How does the loop exit when the revisor wants more but names no queries?**
-  Without a third exit, it re-runs the same round until the cap.

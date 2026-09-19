@@ -33,12 +33,20 @@ async function main() {
             if (EXIT_WORDS.includes(question.toLowerCase())) break;
 
             try {
-                // Per-question working state (a revision count, gathered
-                // evidence) is reset here once those channels exist — the
-                // checkpointer persists the whole thread, so a counter left
-                // alone ends every later turn before it starts.
                 const result = await app.invoke(
-                    { messages: [{ role: "user", content: question }] },
+                    {
+                        messages: [{ role: "user", content: question }],
+                        // Per-question working state, reset here because the
+                        // checkpointer persists the whole thread: a spent
+                        // revision budget would end the next turn before its
+                        // first round, and last question's sources would get
+                        // cited in an answer they have nothing to do with.
+                        revisions: 0,
+                        queries: [],
+                        citations: [],
+                        evidence: [],
+                        verdict: "REVISE" as const,
+                    },
                     config,
                 );
 
@@ -46,15 +54,18 @@ async function main() {
                 // in its own channel so revisions never enter the transcript.
                 console.log(`\nAI: ${result.answer}\n`);
 
-                // Visible while the revisor is missing — this is the evidence
-                // that will be rewritten against once that node lands.
-                if (result.evidence.length > 0) {
-                    console.log("Sources found:");
-                    for (const e of result.evidence) console.log(`  - ${e.title}\n    ${e.url}`);
+                // Citations are a channel, not a "References:" block inside
+                // the answer text — so the CLI can render them however it
+                // likes, and a future UI can render them differently again.
+                if (result.citations.length > 0) {
+                    console.log("References:");
+                    result.citations.forEach((url, i) => console.log(`  [${i + 1}] ${url}`));
                     console.log();
                 }
 
-                console.log(`[searched: ${result.queries.join(" | ")}]\n`);
+                console.log(
+                    `[${result.verdict.toLowerCase()} after ${result.revisions} revision(s), ${result.evidence.length} source(s) read]\n`,
+                );
             } catch (e) {
                 console.error("AI:  Something went wrong:", (e as Error).message);
             }

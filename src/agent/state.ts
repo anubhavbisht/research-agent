@@ -6,9 +6,19 @@ import { z } from "zod";
  * annotation is what types the partial object each node returns, and what the
  * predicates read to decide a branch.
  *
- * Still to come, as the node that writes each one gets built: a revision
- * count, and the verdict the revisor votes with.
  */
+
+/**
+ * The revisor's call on the answer it just wrote. A closed enum rather than
+ * free text: it types the channel, constrains what `withStructuredOutput` may
+ * return, and gives the predicate an exact value to match — so a hallucinated
+ * verdict cannot reach the graph.
+ *
+ * GROUNDED is not "good enough to stop". It means every claim is carried by a
+ * source already in `evidence`, so another search round would change nothing.
+ */
+export const VerdictSchema = z.enum(["GROUNDED", "REVISE"]);
+export type Verdict = z.infer<typeof VerdictSchema>;
 
 /**
  * The self-critique half of Reflexion. It lives here rather than in
@@ -61,6 +71,14 @@ export const StateAnnotation = Annotation.Root({
     /** Searches the last node asked for. Consumed by `research`, then overwritten. */
     queries: replace<string[]>(() => []),
 
+    /** URLs the answer actually cites, in [n] order. A subset of `evidence`. */
+    citations: replace<string[]>(() => []),
+
+    /** Revision passes spent on the current question. Reset per turn by the caller. */
+    revisions: replace<number>(() => 0),
+
+    verdict: replace<Verdict>(() => "REVISE"),
+
     /**
      * Everything found so far this turn. The first channel where `replace` is
      * the wrong answer: a later round's answer still rests on sources the first
@@ -72,6 +90,13 @@ export const StateAnnotation = Annotation.Root({
      */
     evidence: Annotation<Evidence[]>({
         reducer: (previous, next) => {
+            // An explicit empty array means "new question" — the caller
+            // clearing the channel at the top of a turn. An accumulating
+            // reducer has no other way to be reset, since merging [] into
+            // previous is a no-op. This is why `research` returns an empty
+            // patch rather than `{ evidence: [] }` when it finds nothing.
+            if (next.length === 0) return [];
+
             const merged = [...previous];
             const seen = new Set(previous.map((e) => e.url));
 
