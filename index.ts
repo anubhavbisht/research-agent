@@ -46,9 +46,15 @@ async function main() {
                 // in its own channel so revisions never enter the transcript.
                 console.log(`\nAI: ${result.answer}\n`);
 
-                // Visible while the responder runs alone — these are what the
-                // research node will consume once it exists.
-                console.log(`[next searches: ${result.queries.join(" | ")}]\n`);
+                // Visible while the revisor is missing — this is the evidence
+                // that will be rewritten against once that node lands.
+                if (result.evidence.length > 0) {
+                    console.log("Sources found:");
+                    for (const e of result.evidence) console.log(`  - ${e.title}\n    ${e.url}`);
+                    console.log();
+                }
+
+                console.log(`[searched: ${result.queries.join(" | ")}]\n`);
             } catch (e) {
                 console.error("AI:  Something went wrong:", (e as Error).message);
             }

@@ -9,9 +9,9 @@ until every claim rests on a source or the revision budget runs out.
 Built with LangGraph on [Bun](https://bun.com), with OpenAI for inference and
 Tavily for search.
 
-> **Status: in progress.** The environment, the model, the search client, the
-> rubric, the draft contract and the `responder` node exist. The graph is not
-> wired yet — see [To build](#to-build).
+> **Status: in progress.** `responder` and `research` are built and wired, so
+> a turn drafts an answer and gathers sources — but nothing rewrites against
+> them yet. The `revisor` and the loop are next; see [To build](#to-build).
 
 ## Reflexion, and how it differs from reflection
 
@@ -98,7 +98,7 @@ src/
     llm.ts                   the OpenAI chat model
     rubric.ts                what a good answer looks like — shared by both prompts
     responder/               first unsourced answer + self-critique + queries
-    research/
+    research/                runs the queries, appends what it finds
       tools/tavily.ts        the search client
 ```
 
@@ -111,29 +111,25 @@ per specialist and stays unaware of how that folder is laid out inside.
 
 Roughly in dependency order. Done so far:
 
-1. ~~**`state.ts`**~~ — `answer`, `reflection` and `queries` channels, plus
-   `ReflectionSchema`. Still needs `evidence`, `revisions` and a `VerdictSchema`
-   (`GROUNDED` / `REVISE`) — the enum types the channel *and* constrains what
-   the model may emit.
+1. ~~**`state.ts`**~~ — `answer`, `reflection`, `queries` and `evidence`
+   channels, plus `ReflectionSchema`. Still needs `revisions` and a
+   `VerdictSchema` (`GROUNDED` / `REVISE`) — the enum types the channel *and*
+   constrains what the model may emit.
 2. ~~**`rubric.ts`**~~ — the rules both prompts build on.
 3. ~~**`schemas.ts`**~~ — `DraftSchema`. Still needs the revision shape: the
    same fields plus `citations` and `verdict`.
 4. ~~**`responder/`**~~ — one call returning answer + reflection + queries.
+5. ~~**`research/`**~~ — the node, its tool surface, and the `evidence`
+   channel with an accumulating, URL-deduplicated reducer.
 
 Remaining:
 
-5. **`research/tools/index.ts`** — the public surface over `tavily.ts`; then
-   **`research/index.ts`**, the node that runs the queries.
 6. **`revisor/`** — rewrite against evidence, cite, re-critique, vote.
 7. **`predicates.ts`** — `needsMoreResearch`, with `MAX_REVISIONS` beside it.
-8. **`graph.ts`** — the nodes and the conditional edge back to `research`. Then
-   `index.ts` reads `result.answer` rather than the last message.
+8. **`graph.ts`** — the conditional edge from the revisor back to `research`.
 
 Worth deciding early, because they are awkward to retrofit:
 
-- **Does `evidence` accumulate or replace?** A later answer still rests on
-  sources the first round found. Accumulating needs deduplication by URL and a
-  ceiling — it is the largest thing in the prompt and it only grows.
 - **Does the answer live in `messages`?** Every revision landing in the
   transcript means a follow-up question arrives behind four drafts of the last
   one. A terminal node that writes the finished answer once is the way out.
